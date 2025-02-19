@@ -6,6 +6,7 @@ import { whiteboardRouter } from "./routes/whiteboardRoutes";
 import { authMiddleware } from "./middlewares/authMiddleware";
 import { Server } from "socket.io";
 import http from "http";
+import { del, get, set } from "./network";
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -18,19 +19,44 @@ const io = new Server(server, {
 });
 
 io.on("connection", (socket) => {
-  console.log("a user connected", socket.id);
+  console.log("A user connected", socket.id);
 
-  socket.on("join-room", (noteId) => {
-    socket.join(noteId);
-    console.log(`user joined room ${noteId}`);
+  socket.on("join-room", (roomId) => {
+    socket.join(roomId);
+    console.log(`User joined room ${roomId}`);
   });
 
-  socket.on("edit-note", (noteId, data) => {
-    io.to(noteId).emit("update-note", data);
+  socket.on("get-note", async (roomId) => {
+    const note = await get(roomId);
+    socket.emit("update-note", note);
   });
 
-  socket.on("disconnect", () => {
-    console.log("user disconnected");
+  socket.on("edit-note", async (roomId, data) => {
+    io.to(roomId).emit("update-note", data);
+    await set(roomId, data);
+  });
+
+  socket.on("get-whiteboard", async (roomId) => {
+    // await del(roomId);
+    const whiteboard = await get(roomId);
+    socket.emit("update-whiteboard", roomId, "userId", whiteboard);
+  });
+
+  socket.on("update-whiteboard", async (roomId, userId, data) => {
+    io.to(roomId).emit("update-whiteboard", roomId, userId, data);
+    await set(roomId, data);
+  });
+
+  socket.on("disconnecting", () => {
+    socket.rooms.forEach((room) => {
+      if (room !== socket.id) {
+        console.log(`User leaving room ${room}`);
+      }
+    });
+  });
+
+  socket.on("disconnect", async () => {
+    console.log("User disconnected", socket.id);
   });
 });
 

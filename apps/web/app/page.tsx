@@ -20,6 +20,8 @@ function NoteEditor({ noteId }: { noteId: string }) {
   useEffect(() => {
     socket.emit("join-room", noteId);
 
+    socket.emit("get-note", noteId);
+
     socket.on("update-note", (updatedContent) => {
       setContent(updatedContent);
     });
