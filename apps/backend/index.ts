@@ -47,6 +47,21 @@ io.on("connection", (socket) => {
     await set(roomId, data);
   });
 
+  socket.on("clear-whiteboard", async (roomId) => {
+    const emptyCanvas = {
+      version: "6.6.1",
+      objects: [],
+    };
+
+    io.to(roomId).emit(
+      "update-whiteboard",
+      roomId,
+      "userId",
+      JSON.stringify(emptyCanvas)
+    );
+    await del(roomId);
+  });
+
   socket.on("disconnecting", () => {
     socket.rooms.forEach((room) => {
       if (room !== socket.id) {
