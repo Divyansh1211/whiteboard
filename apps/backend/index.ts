@@ -36,8 +36,12 @@ io.on("connection", (socket) => {
     await set(roomId, data);
   });
 
+  socket.on("clear-note", async (roomId) => {
+    io.to(roomId).emit("update-note", "");
+    await del(roomId);
+  });
+
   socket.on("get-whiteboard", async (roomId) => {
-    // await del(roomId);
     const whiteboard = await get(roomId);
     socket.emit("update-whiteboard", roomId, "userId", whiteboard);
   });
@@ -65,6 +69,7 @@ io.on("connection", (socket) => {
   socket.on("disconnecting", () => {
     socket.rooms.forEach((room) => {
       if (room !== socket.id) {
+        console.log(`socket id: ${socket.id}`);
         console.log(`User leaving room ${room}`);
       }
     });

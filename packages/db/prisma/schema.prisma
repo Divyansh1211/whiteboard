@@ -14,11 +14,13 @@ datasource db {
 }
 
 model User {
-  id          String  @id @default(cuid())
-  email       String  @unique
+  id          String       @id @default(cuid())
+  email       String       @unique
   name        String?
   password    String
+  profilePic  String?
   notes       Notes[]
+  whiteboards Whiteboard[]
   // sharedNotes Notes[] @relation("SharedWith")
 }
 
@@ -30,4 +32,11 @@ model Notes {
   owner      User     @relation(fields: [ownerId], references: [id])
   // sharedWith User[]   @relation("SharedWith")
   lastEdited DateTime @default(now())
+}
+
+model Whiteboard {
+  id      String @id @default(cuid())
+  ownerId String
+  owner   User   @relation(fields: [ownerId], references: [id])
+  data    String
 }
