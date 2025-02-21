@@ -35,8 +35,12 @@ model Notes {
 }
 
 model Whiteboard {
-  id      String @id @default(cuid())
-  ownerId String
-  owner   User   @relation(fields: [ownerId], references: [id])
-  data    String
+  id           String   @id @default(cuid())
+  canvasId     String
+  title        String
+  ownerId      String
+  thumbnail    String
+  lastModified DateTime @default(now())
+  data         String
+  owner        User     @relation(fields: [ownerId], references: [id])
 }

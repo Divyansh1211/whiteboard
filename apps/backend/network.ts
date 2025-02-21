@@ -1,4 +1,4 @@
-import {createClient} from "redis";
+import { createClient } from "redis";
 
 const client = createClient();
 
@@ -14,7 +14,7 @@ export async function get(key: string) {
 
 export async function set(key: string, value: string) {
   return await client.set(key, value);
-}  
+}
 
 export async function del(key: string) {
   return await client.del(key);

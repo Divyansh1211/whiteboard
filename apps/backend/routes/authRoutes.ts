@@ -31,7 +31,9 @@ authRouter.post("/register", async (req, res) => {
         password: hashedPassword,
       },
     });
-    res.json(user);
+    res.json({
+      message: "User created successfully",
+    });
   } catch (err) {
     res.status(500).json(err);
   }
@@ -62,7 +64,7 @@ authRouter.post("/login", async (req, res) => {
       return;
     }
     const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET!);
-    res.json({ token });
+    res.json({ token, user });
   } catch (err) {
     res.status(500).json(err);
   }
@@ -77,4 +79,3 @@ authRouter.get("/me", authMiddleware, async (req, res) => {
   });
   res.json(user);
 });
-

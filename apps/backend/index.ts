@@ -6,13 +6,21 @@ import { whiteboardRouter } from "./routes/whiteboardRoutes";
 import { authMiddleware } from "./middlewares/authMiddleware";
 import { Server } from "socket.io";
 import http from "http";
-import { del, get, set } from "./network";
+import { get } from "./network";
+import {
+  handleClearNote,
+  handleClearWhiteBoard,
+  handleEditNote,
+  handleLeaveRoom,
+  handleUpdateWhiteBoard,
+} from "./handleSocket";
 
 const app = express();
 const port = process.env.PORT || 3000;
 
 const server = http.createServer(app);
-const io = new Server(server, {
+
+export const io = new Server(server, {
   cors: {
     origin: "*",
   },
@@ -31,40 +39,20 @@ io.on("connection", (socket) => {
     socket.emit("update-note", note);
   });
 
-  socket.on("edit-note", async (roomId, data) => {
-    io.to(roomId).emit("update-note", data);
-    await set(roomId, data);
-  });
+  socket.on("edit-note", handleEditNote);
 
-  socket.on("clear-note", async (roomId) => {
-    io.to(roomId).emit("update-note", "");
-    await del(roomId);
-  });
+  socket.on("clear-note", handleClearNote);
 
   socket.on("get-whiteboard", async (roomId) => {
     const whiteboard = await get(roomId);
     socket.emit("update-whiteboard", roomId, "userId", whiteboard);
   });
 
-  socket.on("update-whiteboard", async (roomId, userId, data) => {
-    io.to(roomId).emit("update-whiteboard", roomId, userId, data);
-    await set(roomId, data);
-  });
+  socket.on("update-whiteboard", handleUpdateWhiteBoard);
 
-  socket.on("clear-whiteboard", async (roomId) => {
-    const emptyCanvas = {
-      version: "6.6.1",
-      objects: [],
-    };
+  socket.on("clear-whiteboard", handleClearWhiteBoard);
 
-    io.to(roomId).emit(
-      "update-whiteboard",
-      roomId,
-      "userId",
-      JSON.stringify(emptyCanvas)
-    );
-    await del(roomId);
-  });
+  socket.on("leave-room", handleLeaveRoom);
 
   socket.on("disconnecting", () => {
     socket.rooms.forEach((room) => {

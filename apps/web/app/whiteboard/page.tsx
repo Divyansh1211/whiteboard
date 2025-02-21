@@ -1,18 +1,8 @@
 "use client";
 
 import { Canvas, Circle, Path, PencilBrush, Rect, Triangle } from "fabric";
-import {
-  Download,
-  Eraser,
-  Palette,
-  Redo,
-  Trash2,
-  Undo,
-  Circle as cirle,
-  Square,
-  Triangle as triangle,
-  RectangleHorizontal,
-} from "lucide-react";
+import { Download, Eraser, Palette, Redo, Trash2, Undo } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 
@@ -25,12 +15,15 @@ interface CustomCanvas extends Canvas {
 export default function Whiteboard() {
   const canvasRef = useRef<CustomCanvas | null>(null);
   const [color, setColor] = useState("#000000");
-  const userId = useRef(Math.random().toString(36).substring(7));
-  const roomId = "whiteboard1";
+  const userId = localStorage.getItem("userId");
   const isDrawingRef = useRef(false);
   const activeShapeRef = useRef<any>(null);
   const startPointRef = useRef({ x: 0, y: 0 });
   const [linewidth, setLineWidth] = useState(3);
+  const params = useSearchParams();
+  const whiteboardId = params.get("whiteboardId") || "";
+  const title = params.get("title") || "Name Your Canvas";
+  const [name, setName] = useState(title);
 
   useEffect(() => {
     const canvas = new Canvas("whiteboard", {
@@ -67,7 +60,7 @@ export default function Whiteboard() {
                 return null;
             }
           })
-          .filter(Boolean); // Remove any null values
+          .filter(Boolean);
       } catch (error) {
         console.error("Error recreating objects:", error);
         return [];
@@ -202,7 +195,7 @@ export default function Whiteboard() {
         activeShapeRef.current = null;
 
         const shapeData = JSON.stringify(canvasRef.current?.toJSON());
-        socket.emit("update-whiteboard", roomId, userId.current, shapeData);
+        socket.emit("update-whiteboard", whiteboardId, userId, shapeData);
       }
     };
 
@@ -210,20 +203,17 @@ export default function Whiteboard() {
     canvas.on("mouse:move", handleMouseMove);
     canvas.on("mouse:up", handleMouseUp);
 
-    socket.emit("join-room", roomId);
-    socket.emit("get-whiteboard", roomId);
+    socket.emit("join-room", whiteboardId);
+    socket.emit("get-whiteboard", whiteboardId);
 
     socket.on("update-whiteboard", (updatedRoomId, incoming_userId, data) => {
-      if (!canvasRef.current || incoming_userId === userId.current) return;
+      if (!canvasRef.current || incoming_userId === userId) return;
 
       try {
-        // Clear existing canvas
         canvasRef.current.clear();
 
-        // Recreate all objects
         const objects = recreateObjectFromJSON(canvasRef.current, data);
 
-        // Add all objects to canvas
         objects.forEach((obj: any) => {
           if (obj) {
             canvasRef.current?.add(obj);
@@ -238,24 +228,34 @@ export default function Whiteboard() {
     const sendCanvasUpdate = () => {
       if (!canvasRef.current) return;
       const canvasData = JSON.stringify(canvasRef.current.toJSON());
-      socket.emit("update-whiteboard", roomId, userId.current, canvasData);
+      socket.emit("update-whiteboard", whiteboardId, userId, canvasData);
     };
 
     canvas.on("path:created", sendCanvasUpdate);
 
+    window.addEventListener("beforeunload", () => {
+      socket.emit(
+        "leave-room",
+        whiteboardId,
+        userId,
+        canvasRef.current?.toJSON(),
+        name
+      );
+    });
+    
     return () => {
       canvas.dispose();
       socket.off("update-whiteboard");
       socket.off("clear-whiteboard");
+      socket.off("leave-room");
     };
   }, []);
 
   const handleDownload = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const link = document.createElement("a");
-    link.download = "drawing.png";
+    link.download = `${name}.png`;
     link.href = canvas.toDataURL();
     link.click();
   };
@@ -265,9 +265,12 @@ export default function Whiteboard() {
       <div className="max-w mx-auto">
         <div className="bg-white rounded-xl shadow-xl p-6">
           <div className="flex items-center justify-between mb-6">
-            <h1 className="text-3xl font-bold text-gray-800">
-              Brainstorm Here!!
-            </h1>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="text-3xl font-bold text-gray-800 bg-transparent border-b-2 border-transparent hover:border-gray-200 focus:border-indigo-500 outline-none transition-colors"
+            />
             <div className="flex items-center gap-4">
               <select
                 defaultValue={"pencil"}
@@ -312,7 +315,7 @@ export default function Whiteboard() {
                 onClick={() => {
                   if (canvasRef.current) {
                     canvasRef.current.clear();
-                    socket.emit("clear-whiteboard", roomId);
+                    socket.emit("clear-whiteboard", whiteboardId);
                   }
                 }}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -373,65 +376,5 @@ export default function Whiteboard() {
         </div>
       </div>
     </div>
-    // <div className="flex flex-col items-center justify-center h-screen">
-    //   <canvas id="whiteboard" width="800" height="500" className="border" />
-    //   <div className="flex justify-between space-x-4 w-[800px]">
-    //     <input
-    //       type="color"
-    //       value={color}
-    //       onChange={(e) => {
-    //         setColor(e.target.value);
-    //         if (canvasRef.current?.freeDrawingBrush) {
-    //           canvasRef.current.freeDrawingBrush.color = e.target.value;
-    //         }
-    //       }}
-    //     />
-    //     <select
-    //       onChange={(e) => {
-    //         if (canvasRef.current?.freeDrawingBrush) {
-    //           canvasRef.current.freeDrawingBrush.width =
-    //             brushWidth[e.target.value as keyof typeof brushWidth] ?? 3;
-    //         }
-    //       }}
-    //     >
-    //       <option>Thin</option>
-    //       <option>Medium</option>
-    //       <option>Thick</option>
-    //     </select>
-    //     <select
-    //       onChange={(e) => {
-    //         if (canvasRef.current) {
-    //           const shape = e.target.value.toLowerCase();
-    //           canvasRef.current.isDrawingMode = shape === "pencil";
-    //           canvasRef.current.shapeType = shape;
-
-    //           // Enable/disable object selection based on mode
-    //           canvasRef.current.selection = shape === "select";
-    //           const objects = canvasRef.current.getObjects();
-    //           objects.forEach((obj) => (obj.selectable = shape === "select"));
-    //         }
-    //       }}
-    //     >
-    //       <option value="select">Select</option>
-    //       <option value="pencil">Pencil</option>
-    //       <option value="circle">Circle</option>
-    //       <option value="rectangle">Rectangle</option>
-    //       <option value="triangle">Triangle</option>
-    //       <option value="square">Square</option>
-    //     </select>
-    //     <button
-    //       type="button"
-    //       onClick={() => {
-    //         if (canvasRef.current) {
-    //           canvasRef.current.clear();
-    //           console.log(canvasRef.current.toJSON());
-    //           socket.emit("clear-whiteboard", roomId);
-    //         }
-    //       }}
-    //     >
-    //       Clear
-    //     </button>
-    //   </div>
-    // </div>
   );
 }
